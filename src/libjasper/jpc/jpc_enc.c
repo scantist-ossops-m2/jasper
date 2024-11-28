@@ -1141,8 +1141,9 @@ int numgbits;
 		tilex = tileno % cp->numhtiles;
 		tiley = tileno / cp->numhtiles;
 
-		if (!(enc->curtile = jpc_enc_tile_create(enc->cp, enc->image, tileno))) {
-			abort();
+		if (!(enc->curtile = jpc_enc_tile_create(enc->cp, enc->image,
+		  tileno))) {
+			return -1;
 		}
 
 		tile = enc->curtile;
@@ -2017,6 +2018,8 @@ error:
 	return 0;
 }
 
+/* Note: I don't think that it is necessary to marked destroyed subobjects
+as such in this function. */
 void jpc_enc_tile_destroy(jpc_enc_tile_t *tile)
 {
 	jpc_enc_tcmpt_t *tcmpt;
@@ -2028,16 +2031,21 @@ void jpc_enc_tile_destroy(jpc_enc_tile_t *tile)
 			tcmpt_destroy(tcmpt);
 		}
 		jas_free(tile->tcmpts);
+		/* tile->tcmpts = NULL; */
 	}
 	if (tile->lyrsizes) {
 		jas_free(tile->lyrsizes);
+		/* tile->lyrsizes = NULL; */
 	}
 	if (tile->pi) {
 		jpc_pi_destroy(tile->pi);
+		/* tile->pi = NULL; */
 	}
 	jas_free(tile);
+	/* tile = NULL; */
 }
 
+/* Note: This constructor creates the object in place. */
 static jpc_enc_tcmpt_t *tcmpt_create(jpc_enc_tcmpt_t *tcmpt, jpc_enc_cp_t *cp,
   jas_image_t *image, jpc_enc_tile_t *tile)
 {
@@ -2134,6 +2142,10 @@ error:
 
 }
 
+/* Note: Since jpc_enc_tcmpt_t objects are created in-place, they might
+potentially be destroyed multiple times at different levels in the call
+chain.  So, destroyed subobjects must be marked as destroyed to prevent
+problems such as double frees. */
 static void tcmpt_destroy(jpc_enc_tcmpt_t *tcmpt)
 {
 	jpc_enc_rlvl_t *rlvl;
@@ -2145,16 +2157,20 @@ static void tcmpt_destroy(jpc_enc_tcmpt_t *tcmpt)
 			rlvl_destroy(rlvl);
 		}
 		jas_free(tcmpt->rlvls);
+		tcmpt->rlvls = NULL;
 	}
 
 	if (tcmpt->data) {
 		jas_seq2d_destroy(tcmpt->data);
+		tcmpt->data = NULL;
 	}
 	if (tcmpt->tsfb) {
 		jpc_tsfb_destroy(tcmpt->tsfb);
+		tcmpt->tsfb = NULL;
 	}
 }
 
+/* Note: This constructor creates the object in place. */
 static jpc_enc_rlvl_t *rlvl_create(jpc_enc_rlvl_t *rlvl, jpc_enc_cp_t *cp,
   jpc_enc_tcmpt_t *tcmpt, jpc_tsfb_band_t *bandinfos)
 {
@@ -2236,6 +2252,10 @@ error:
 	return 0;
 }
 
+/* Note: Since jpc_enc_rlvl_t objects are created in-place, they might
+potentially be destroyed multiple times at different levels in the call
+chain.  So, destroyed subobjects must be marked as destroyed to prevent
+problems such as double frees. */
 static void rlvl_destroy(jpc_enc_rlvl_t *rlvl)
 {
 	jpc_enc_band_t *band;
@@ -2247,9 +2267,11 @@ static void rlvl_destroy(jpc_enc_rlvl_t *rlvl)
 			band_destroy(band);
 		}
 		jas_free(rlvl->bands);
+		rlvl->bands = NULL;
 	}
 }
 
+/* Note: This constructor creates the object in place. */
 static jpc_enc_band_t *band_create(jpc_enc_band_t *band, jpc_enc_cp_t *cp,
   jpc_enc_rlvl_t *rlvl, jpc_tsfb_band_t *bandinfos)
 {
@@ -2317,6 +2339,10 @@ error:
 	return 0;
 }
 
+/* Note: Since jpc_enc_band_t objects are created in-place, they might
+potentially be destroyed multiple times at different levels in the call
+chain.  So, destroyed subobjects must be marked as destroyed to prevent
+problems such as double frees. */
 static void band_destroy(jpc_enc_band_t *band)
 {
 	jpc_enc_prc_t *prc;
@@ -2330,12 +2356,15 @@ static void band_destroy(jpc_enc_band_t *band)
 			prc_destroy(prc);
 		}
 		jas_free(band->prcs);
+		band->prcs = NULL;
 	}
 	if (band->data) {
 		jas_seq2d_destroy(band->data);
+		band->data = NULL;
 	}
 }
 
+/* Note: This constructor creates the object in place. */
 static jpc_enc_prc_t *prc_create(jpc_enc_prc_t *prc, jpc_enc_cp_t *cp, jpc_enc_band_t *band)
 {
 	uint_fast32_t prcno;
@@ -2365,21 +2394,21 @@ static jpc_enc_prc_t *prc_create(jpc_enc_prc_t *prc, jpc_enc_cp_t *cp, jpc_enc_b
 
 	rlvl = band->rlvl;
 	tcmpt = rlvl->tcmpt;
-rlvlno = rlvl - tcmpt->rlvls;
+	rlvlno = rlvl - tcmpt->rlvls;
 	prcno = prc - band->prcs;
 	prcxind = prcno % rlvl->numhprcs;
 	prcyind = prcno / rlvl->numhprcs;
 	prc->band = band;
 
-tlprctlx = JPC_FLOORTOMULTPOW2(rlvl->tlx, rlvl->prcwidthexpn);
-tlprctly = JPC_FLOORTOMULTPOW2(rlvl->tly, rlvl->prcheightexpn);
-if (!rlvlno) {
-	tlcbgtlx = tlprctlx;
-	tlcbgtly = tlprctly;
-} else {
-	tlcbgtlx = JPC_CEILDIVPOW2(tlprctlx, 1);
-	tlcbgtly = JPC_CEILDIVPOW2(tlprctly, 1);
-}
+	tlprctlx = JPC_FLOORTOMULTPOW2(rlvl->tlx, rlvl->prcwidthexpn);
+	tlprctly = JPC_FLOORTOMULTPOW2(rlvl->tly, rlvl->prcheightexpn);
+	if (!rlvlno) {
+		tlcbgtlx = tlprctlx;
+		tlcbgtly = tlprctly;
+	} else {
+		tlcbgtlx = JPC_CEILDIVPOW2(tlprctlx, 1);
+		tlcbgtly = JPC_CEILDIVPOW2(tlprctly, 1);
+	}
 
 	/* Compute the coordinates of the top-left and bottom-right
 	  corners of the precinct. */
@@ -2461,6 +2490,10 @@ error:
 	return 0;
 }
 
+/* Note: Since jpc_enc_prc_t objects are created in-place, they might
+potentially be destroyed multiple times at different levels in the call
+chain.  So, destroyed subobjects must be marked as destroyed to prevent
+problems such as double frees. */
 static void prc_destroy(jpc_enc_prc_t *prc)
 {
 	jpc_enc_cblk_t *cblk;
@@ -2472,22 +2505,29 @@ static void prc_destroy(jpc_enc_prc_t *prc)
 			cblk_destroy(cblk);
 		}
 		jas_free(prc->cblks);
+		prc->cblks = NULL;
 	}
 	if (prc->incltree) {
 		jpc_tagtree_destroy(prc->incltree);
+		prc->incltree = NULL;
 	}
 	if (prc->nlibtree) {
 		jpc_tagtree_destroy(prc->nlibtree);
+		prc->nlibtree = NULL;
 	}
 	if (prc->savincltree) {
 		jpc_tagtree_destroy(prc->savincltree);
+		prc->savincltree = NULL;
 	}
 	if (prc->savnlibtree) {
 		jpc_tagtree_destroy(prc->savnlibtree);
+		prc->savnlibtree = NULL;
 	}
 }
 
-static jpc_enc_cblk_t *cblk_create(jpc_enc_cblk_t *cblk, jpc_enc_cp_t *cp, jpc_enc_prc_t *prc)
+/* Note: This constructor creates the object in place. */
+static jpc_enc_cblk_t *cblk_create(jpc_enc_cblk_t *cblk, jpc_enc_cp_t *cp,
+  jpc_enc_prc_t *prc)
 {
 	jpc_enc_band_t *band;
 	uint_fast32_t cblktlx;
@@ -2545,6 +2585,10 @@ error:
 	return 0;
 }
 
+/* Note: Since jpc_enc_cblk_t objects are created in-place, they might
+potentially be destroyed multiple times at different levels in the call
+chain.  So, destroyed subobjects must be marked as destroyed to prevent
+problems such as double frees. */
 static void cblk_destroy(jpc_enc_cblk_t *cblk)
 {
 	uint_fast16_t passno;
@@ -2555,18 +2599,23 @@ static void cblk_destroy(jpc_enc_cblk_t *cblk)
 			pass_destroy(pass);
 		}
 		jas_free(cblk->passes);
+		cblk->passes = NULL;
 	}
 	if (cblk->stream) {
 		jas_stream_close(cblk->stream);
+		cblk->stream = NULL;
 	}
 	if (cblk->mqenc) {
 		jpc_mqenc_destroy(cblk->mqenc);
+		cblk->mqenc = NULL;
 	}
 	if (cblk->data) {
 		jas_seq2d_destroy(cblk->data);
+		cblk->data = NULL;
 	}
 	if (cblk->flags) {
 		jas_seq2d_destroy(cblk->flags);
+		cblk->flags = NULL;
 	}
 }
 
