@@ -757,6 +757,9 @@ static int jpc_cox_getcompparms(jpc_ms_t *ms, jpc_cstate_t *cstate,
 	  jpc_getuint8(in, &compparms->qmfbid)) {
 		return -1;
 	}
+	if (compparms->qmfbid != JPC_COX_INS &&
+	    compparms->qmfbid != JPC_COX_RFT)
+		goto error;
 	compparms->numrlvls = compparms->numdlvls + 1;
 	if (compparms->numrlvls > JPC_MAXRLVLS) {
 		goto error;
