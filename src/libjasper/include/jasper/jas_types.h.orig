@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1999-2000 Image Power, Inc. and the University of
  *   British Columbia.
- * Copyright (c) 2001-2002 Michael David Adams.
+ * Copyright (c) 2001-2003 Michael David Adams.
  * All rights reserved.
  */
 
@@ -62,71 +62,75 @@
  */
 
 /*
- * Math-Related Code
+ * Primitive Types
  *
  * $Id$
  */
 
-#ifndef	JAS_MATH_H
-#define	JAS_MATH_H
-
-/******************************************************************************\
-* Includes
-\******************************************************************************/
+#ifndef JAS_TYPES_H
+#define JAS_TYPES_H
 
 #include <jasper/jas_config.h>
 
-#include	<assert.h>
-#include	<stdio.h>
-#include	<string.h>
+#if !defined(JAS_CONFIGURE)
+
+#if defined(WIN32) || defined(HAVE_WINDOWS_H)
+/*
+   We are dealing with Microsoft Windows and most likely Microsoft
+   Visual C (MSVC).  (Heaven help us.)  Sadly, MSVC does not correctly
+   define some of the standard types specified in ISO/IEC 9899:1999.
+   In particular, it does not define the "long long" and "unsigned long
+   long" types.  So, we work around this problem by using the "INT64"
+   and "UINT64" types that are defined in the header file "windows.h".
+ */
+#include <windows.h>
+#undef longlong
+#define	longlong	INT64
+#undef ulonglong
+#define	ulonglong	UINT64
+#endif
+
+#endif
+
+/* Note: The immediately following header files should eventually be removed. */
+#include <stdlib.h>
+#include <stddef.h>
+#include <stdbool.h>
+#include <stdint.h>
+
+#if defined(HAVE_SYS_TYPES_H)
+#include <sys/types.h>
+#endif
+
+/* Hopefully, these macro definitions will fix more problems than they cause. */
+#if !defined(uchar)
+#define uchar unsigned char
+#endif
+#if !defined(ushort)
+#define ushort unsigned short
+#endif
+#if !defined(uint)
+#define uint unsigned int
+#endif
+#if !defined(ulong)
+#define ulong unsigned long
+#endif
+#if !defined(longlong)
+#define longlong long long
+#endif
+#if !defined(ulonglong)
+#define ulonglong unsigned long long
+#endif
+
+/* The below macro is intended to be used for type casts.  By using this
+  macro, type casts can be easily located in the source code with
+  tools like "grep". */
+#define	JAS_CAST(t, e) \
+	((t) (e))
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/******************************************************************************\
-*
-\******************************************************************************/
-
-__attribute__((no_sanitize("undefined")))
-inline static jas_int_asr(int x, int n)
-{
-	assert(n >= 0);
-	return x >> n;
-}
-
-__attribute__((no_sanitize("undefined")))
-inline static jas_int_asl(int x, int n)
-{
-	assert(n >= 0);
-	return x << n;
-}
-
-/******************************************************************************\
-* Macros
-\******************************************************************************/
-
-/* Compute the absolute value. */
-#define	JAS_ABS(x) \
-	(((x) >= 0) ? (x) : (-(x)))
-
-/* Compute the minimum of two values. */
-#define	JAS_MIN(x, y) \
-	(((x) < (y)) ? (x) : (y))
-
-/* Compute the maximum of two values. */
-#define	JAS_MAX(x, y) \
-	(((x) > (y)) ? (x) : (y))
-
-/* Compute the remainder from division (where division is defined such
-  that the remainder is always nonnegative). */
-#define	JAS_MOD(x, y) \
-	(((x) < 0) ? (((-x) % (y)) ? ((y) - ((-(x)) % (y))) : (0)) : ((x) % (y)))
-
-/* Compute the integer with the specified number of least significant bits
-  set to one. */
-#define	JAS_ONES(n) \
-  ((1 << (n)) - 1)
 
 #ifdef __cplusplus
 }
